@@ -324,14 +324,35 @@ pub(super) fn render_panes(
             rt.render(frame, info.inner_rect, show_cursor);
             render_pane_scrollbar(app, frame, info, rt);
 
-            let should_dim = !info.is_focused && multi_pane && !terminal_active;
-            if should_dim {
+            // Agent-state background wash (opt-in, `[ui.agent_tint]`). Driven by
+            // the same (state, seen) as the sidebar dot, so a pane awaiting input
+            // glows amber and a finished-but-unseen pane glows green. Persists
+            // regardless of focus (Blocked stays until acted on; "done" clears
+            // because `seen` flips true on focus). When no tint applies, fall
+            // back to the historical unfocused dimming — fully backward-compatible.
+            let tint = ws.pane_state(info.id).and_then(|pane| {
+                let state = app.terminals.get(&pane.attached_terminal_id)?.state;
+                app.agent_tint.bg_for(state, pane.seen)
+            });
+            if let Some(bg) = tint {
                 let inner = info.inner_rect;
                 let buf = frame.buffer_mut();
                 for y in inner.y..inner.y + inner.height {
                     for x in inner.x..inner.x + inner.width {
                         let cell = &mut buf[(x, y)];
-                        cell.set_style(cell.style().add_modifier(Modifier::DIM));
+                        cell.set_style(cell.style().bg(bg));
+                    }
+                }
+            } else {
+                let should_dim = !info.is_focused && multi_pane && !terminal_active;
+                if should_dim {
+                    let inner = info.inner_rect;
+                    let buf = frame.buffer_mut();
+                    for y in inner.y..inner.y + inner.height {
+                        for x in inner.x..inner.x + inner.width {
+                            let cell = &mut buf[(x, y)];
+                            cell.set_style(cell.style().add_modifier(Modifier::DIM));
+                        }
                     }
                 }
             }

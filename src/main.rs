@@ -281,6 +281,18 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 # Show detected/reported agent labels in split pane borders when no manual pane name is set.
 # show_agent_labels_on_pane_borders = false
 
+# Tint pane backgrounds by agent state (opt-in). When enabled, a pane's
+# background echoes its sidebar dot: amber while it awaits input, green when it
+# has finished but you haven't looked yet. Reproduces the tmux "tan-on-return"
+# workflow. Colors accept hex (#4a3500), rgb(r,g,b), or named colors. Any unset
+# state gets no tint and falls back to the normal unfocused-pane dimming.
+# [ui.agent_tint]
+# enabled = false
+# needs_input = "#4a3500"  # agent blocked / awaiting input (persists until acted on)
+# done = "#0a3010"         # agent finished, pane not yet viewed (clears on focus)
+# working = "..."          # optional: while the agent is working
+# idle = "..."             # optional: idle and already viewed
+
 # Agent panel ordering: "spaces" (grouped by space) or "priority" (attention queue).
 # "workspaces" is accepted as an alias for "spaces".
 # agent_panel_sort = "spaces"

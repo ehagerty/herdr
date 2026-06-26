@@ -50,6 +50,57 @@ use crate::terminal_theme::{HostAppearance, TerminalTheme};
 use crate::workspace::Workspace;
 
 // ---------------------------------------------------------------------------
+// Agent-state pane tint — resolved (parsed) colors for the opt-in background
+// wash driven by `[ui.agent_tint]`. Mirrors the `state_dot` palette mapping so
+// a pane's background can echo the sidebar dot (amber needs-input, green done).
+// ---------------------------------------------------------------------------
+
+/// Resolved per-state pane-background tints. Built from
+/// [`crate::config::AgentTintConfig`] once at startup and on config reload.
+#[derive(Debug, Clone, Default)]
+pub struct AgentTint {
+    pub enabled: bool,
+    /// `AgentState::Blocked` — awaiting input. Persists even when focused.
+    pub needs_input: Option<Color>,
+    /// Idle + unseen — finished but not yet viewed. Clears when the pane is focused.
+    pub done: Option<Color>,
+    /// `AgentState::Working`.
+    pub working: Option<Color>,
+    /// Idle + seen — quiescent and already viewed.
+    pub idle: Option<Color>,
+}
+
+impl AgentTint {
+    /// Parse the string colors from config into ratatui `Color`s.
+    pub fn from_config(cfg: &crate::config::AgentTintConfig) -> Self {
+        let parse = |c: &Option<String>| c.as_deref().map(crate::config::parse_color);
+        Self {
+            enabled: cfg.enabled,
+            needs_input: parse(&cfg.needs_input),
+            done: parse(&cfg.done),
+            working: parse(&cfg.working),
+            idle: parse(&cfg.idle),
+        }
+    }
+
+    /// Background tint for a pane in `(state, seen)`, or `None` when tinting is
+    /// disabled or no color is configured for that state. The `(state, seen)`
+    /// arms match `state_dot` exactly so the wash agrees with the sidebar dot.
+    pub fn bg_for(&self, state: AgentState, seen: bool) -> Option<Color> {
+        if !self.enabled {
+            return None;
+        }
+        match (state, seen) {
+            (AgentState::Blocked, _) => self.needs_input,
+            (AgentState::Idle, false) => self.done,
+            (AgentState::Working, _) => self.working,
+            (AgentState::Idle, true) => self.idle,
+            (AgentState::Unknown, _) => None,
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Theme palette — all UI colors in one place, ready for theming
 // ---------------------------------------------------------------------------
 
@@ -1365,6 +1416,8 @@ pub struct AppState {
     pub pane_borders: bool,
     pub pane_gaps: bool,
     pub show_agent_labels_on_pane_borders: bool,
+    /// Resolved opt-in pane-background tints by agent state (`[ui.agent_tint]`).
+    pub agent_tint: AgentTint,
     pub pane_history_persistence: bool,
     /// Expose the focused pane's cursor anchor to the outer terminal even when
     /// the pane requested `?25l`. See `[experimental] reveal_hidden_cursor_for_cjk_ime`.
@@ -1721,6 +1774,7 @@ impl AppState {
             pane_borders: true,
             pane_gaps: false,
             show_agent_labels_on_pane_borders: false,
+            agent_tint: AgentTint::default(),
             pane_history_persistence: false,
             reveal_hidden_cursor_for_cjk_ime: false,
             cjk_ime_agent_filter_configured: false,

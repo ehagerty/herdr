@@ -781,6 +781,9 @@ pub struct UiConfig {
     pub pane_gaps: bool,
     /// Show agent labels in split pane borders when no manual pane label is set. Default: false.
     pub show_agent_labels_on_pane_borders: bool,
+    /// Tint pane backgrounds by agent state (needs-input / done / working / idle).
+    /// Opt-in; disabled by default. See [`AgentTintConfig`].
+    pub agent_tint: AgentTintConfig,
     /// Agent sidebar ordering. Saved values are "spaces" or "priority". Default: "spaces".
     pub agent_panel_sort: AgentPanelSortConfig,
     /// Accent color for highlights, borders, and navigation UI.
@@ -955,6 +958,36 @@ impl Default for WorktreesConfig {
     }
 }
 
+/// Per-state pane-background tints. An opt-in signal that recolors a pane's
+/// background by its agent state — e.g. amber while an agent awaits input,
+/// green when it has finished but you haven't looked yet. This reproduces the
+/// tmux "tan-on-return" workflow (amber needs-input / green done washes).
+///
+/// All colors are optional; an unset state gets no tint and falls back to the
+/// normal unfocused-pane dimming. Colors accept hex (`#4a3500`), `rgb(r,g,b)`,
+/// or named colors — same syntax as `[ui] accent`.
+///
+/// ```toml
+/// [ui.agent_tint]
+/// enabled = true
+/// needs_input = "#4a3500"  # agent blocked / awaiting input (persists until acted on)
+/// done = "#0a3010"         # agent finished, pane not yet viewed (clears on focus)
+/// ```
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+pub struct AgentTintConfig {
+    /// Master switch. Default: false — no tinting; panes only dim when unfocused.
+    pub enabled: bool,
+    /// Background when the agent is blocked / awaiting input (`AgentState::Blocked`).
+    pub needs_input: Option<String>,
+    /// Background when the agent finished but the pane hasn't been viewed (Idle + unseen).
+    pub done: Option<String>,
+    /// Background while the agent is working (`AgentState::Working`).
+    pub working: Option<String>,
+    /// Background when the agent is idle and already viewed (Idle + seen).
+    pub idle: Option<String>,
+}
+
 impl Default for UiConfig {
     fn default() -> Self {
         Self {
@@ -971,6 +1004,7 @@ impl Default for UiConfig {
             pane_borders: true,
             pane_gaps: true,
             show_agent_labels_on_pane_borders: false,
+            agent_tint: AgentTintConfig::default(),
             agent_panel_sort: AgentPanelSortConfig::Spaces,
             accent: "cyan".into(),
             toast: ToastConfig::default(),
