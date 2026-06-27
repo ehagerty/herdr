@@ -328,15 +328,16 @@ pub(super) fn render_panes(
                 .pane_state(info.id)
                 .map(|pane| pane.marked_unread)
                 .unwrap_or(false);
-            let (state_fg, state_bg) = if app.agent_tint.enabled && info.is_focused {
-                // The focused pane is always "live" (green-on-black), regardless of
-                // its agent state — tmux window-active-style. The green border still
-                // marks focus; this makes the active pane unmistakable.
-                (app.agent_tint.working_fg, app.agent_tint.working)
-            } else if app.agent_tint.enabled && marked_unread {
-                // mark-unread: an unfocused, user-flagged pane shows the waiting
-                // tint until focused (focusing clears the flag — read/unread).
+            let (state_fg, state_bg) = if app.agent_tint.enabled && marked_unread {
+                // mark-unread wins over everything (even focus): the waiting tint
+                // shows in place the moment you mark — tmux behaviour. The green
+                // border still marks focus. Focusing the pane clears the flag, so
+                // a marked pane reverts to its normal colour once read (read/unread).
                 (app.agent_tint.needs_input_fg, app.agent_tint.needs_input)
+            } else if app.agent_tint.enabled && info.is_focused {
+                // The focused pane is otherwise always "live" (green-on-black),
+                // regardless of agent state — tmux window-active-style.
+                (app.agent_tint.working_fg, app.agent_tint.working)
             } else {
                 ws.pane_state(info.id)
                     .and_then(|pane| {
