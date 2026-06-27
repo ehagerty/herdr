@@ -131,7 +131,7 @@ jobs:
             os: macos-latest
             name: herdr-macos-x86_64
           - target: aarch64-apple-darwin
-            os: macos-latest
+            os: macos-15  # pinned: macos-latest (arm64) rolled to a macOS too new for zig 0.15.2
             name: herdr-macos-aarch64
     env:
       LIBGHOSTTY_VT_OPTIMIZE: ${{ inputs.libghostty_optimize }}
