@@ -315,6 +315,14 @@ impl TerminalRuntime {
         self.0.render(frame, area, show_cursor);
     }
 
+    pub fn set_state_default_colors(
+        &self,
+        fg: Option<ratatui::style::Color>,
+        bg: Option<ratatui::style::Color>,
+    ) {
+        self.0.set_state_default_colors(fg, bg);
+    }
+
     pub(crate) fn collect_dirty_patch(
         &self,
         area_width: u16,

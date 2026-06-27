@@ -121,6 +121,12 @@ pub(crate) struct GhosttyPaneCore {
     pub initial_default_foreground: Option<crate::ghostty::RgbColor>,
     pub initial_default_background: Option<crate::ghostty::RgbColor>,
     pub host_terminal_theme: crate::terminal_theme::TerminalTheme,
+    /// Per-frame override of the pane's default fg/bg, driven by agent state
+    /// (the `[ui.agent_tint]` content recolour). `None` = use the theme default.
+    /// Applied only to default/blank cells, so explicitly-coloured output is
+    /// preserved (tmux `window-style` semantics).
+    pub state_default_fg: Option<Color>,
+    pub state_default_bg: Option<Color>,
     pub transient_default_color_owner_pgid: Option<u32>,
     pub default_color_tracker: DefaultColorOscTracker,
     pub default_color_event_tracker: DefaultColorEventTracker,
@@ -265,6 +271,10 @@ impl PaneTerminal {
         self.ghostty.apply_host_terminal_theme(theme);
     }
 
+    pub fn set_state_default_colors(&self, fg: Option<Color>, bg: Option<Color>) {
+        self.ghostty.set_state_default_colors(fg, bg);
+    }
+
     pub fn has_transient_default_color_override(&self) -> bool {
         self.ghostty.has_transient_default_color_override()
     }
@@ -379,6 +389,8 @@ impl GhosttyPaneTerminal {
                 initial_default_foreground,
                 initial_default_background,
                 host_terminal_theme: crate::terminal_theme::TerminalTheme::default(),
+                state_default_fg: None,
+                state_default_bg: None,
                 transient_default_color_owner_pgid: None,
                 default_color_tracker: DefaultColorOscTracker::default(),
                 default_color_event_tracker: DefaultColorEventTracker::default(),
@@ -395,6 +407,15 @@ impl GhosttyPaneTerminal {
             key_encoder: Mutex::new(key_encoder),
             pending_pty_responses,
         })
+    }
+
+    /// Override the pane's default fg/bg from agent state (content recolour).
+    /// `None`/`None` restores the theme default.
+    pub fn set_state_default_colors(&self, fg: Option<Color>, bg: Option<Color>) {
+        if let Ok(mut core) = self.core.lock() {
+            core.state_default_fg = fg;
+            core.state_default_bg = bg;
+        }
     }
 
     pub fn apply_host_terminal_theme(&self, theme: crate::terminal_theme::TerminalTheme) {
@@ -1181,6 +1202,8 @@ impl GhosttyPaneTerminal {
         let host_theme = core.host_terminal_theme;
         let initial_default_foreground = core.initial_default_foreground;
         let initial_default_background = core.initial_default_background;
+        let state_default_fg = core.state_default_fg;
+        let state_default_bg = core.state_default_bg;
         let GhosttyPaneCore {
             terminal,
             render_state,
@@ -1191,10 +1214,15 @@ impl GhosttyPaneTerminal {
             return;
         }
         let colors = render_state.colors().ok();
-        let default_bg = colors
-            .and_then(|c| ghostty_default_bg(c.background, host_theme, initial_default_background));
-        let default_fg = colors
-            .and_then(|c| ghostty_default_fg(c.foreground, host_theme, initial_default_foreground));
+        // Agent-state content recolour: when set, override the pane's default
+        // fg/bg. Falls back to the theme default. Only default/blank cells use
+        // these, so explicitly-coloured output (syntax highlighting) is kept.
+        let default_bg = state_default_bg.or_else(|| {
+            colors.and_then(|c| ghostty_default_bg(c.background, host_theme, initial_default_background))
+        });
+        let default_fg = state_default_fg.or_else(|| {
+            colors.and_then(|c| ghostty_default_fg(c.foreground, host_theme, initial_default_foreground))
+        });
         let resolved_fg = colors.map(|c| ghostty_color(c.foreground));
         let resolved_bg = colors.map(|c| ghostty_color(c.background));
         let hide_kitty_placeholders = crate::kitty_graphics::is_enabled();

@@ -317,6 +317,27 @@ pub(super) fn render_panes(
 
     for info in &app.view.pane_infos {
         if let Some(rt) = app.runtime_for_pane_in_workspace(terminal_runtimes, ws_idx, info.id) {
+            // Agent-state content recolour (opt-in, `[ui.agent_tint]`). Compute a
+            // (fg, bg) default-colour override from the pane's (state, seen) — the
+            // same arms as the sidebar dot — and hand it to the pane BEFORE render.
+            // window-style semantics: only default-coloured cells take it, so
+            // syntax-highlighted output is preserved. `done_on_unfocused` swaps
+            // herdr's view-based `seen` for pane focus, so a finished pane recolours
+            // while unfocused and clears when focused (all-visible split layouts).
+            let (state_fg, state_bg) = ws
+                .pane_state(info.id)
+                .and_then(|pane| {
+                    let state = app.terminals.get(&pane.attached_terminal_id)?.state;
+                    let seen = if app.agent_tint.done_on_unfocused {
+                        info.is_focused
+                    } else {
+                        pane.seen
+                    };
+                    Some(app.agent_tint.default_colors(state, seen))
+                })
+                .unwrap_or((None, None));
+            rt.set_state_default_colors(state_fg, state_bg);
+
             let show_cursor = info.is_focused
                 && terminal_active
                 && !pane_is_scrolled_back(rt)
@@ -324,34 +345,9 @@ pub(super) fn render_panes(
             rt.render(frame, info.inner_rect, show_cursor);
             render_pane_scrollbar(app, frame, info, rt);
 
-            // Agent-state background wash (opt-in, `[ui.agent_tint]`). Driven by
-            // the same (state, seen) as the sidebar dot, so a pane awaiting input
-            // glows amber and a finished-but-unseen pane glows green. Persists
-            // regardless of focus (Blocked stays until acted on; "done" clears
-            // because `seen` flips true on focus). When no tint applies, fall
-            // back to the historical unfocused dimming — fully backward-compatible.
-            let tint = ws.pane_state(info.id).and_then(|pane| {
-                let state = app.terminals.get(&pane.attached_terminal_id)?.state;
-                // `done_on_unfocused` swaps herdr's view-based `seen` for pane
-                // focus, so a finished pane greens while unfocused and clears
-                // when focused (all-visible split layouts). Otherwise use `seen`.
-                let seen = if app.agent_tint.done_on_unfocused {
-                    info.is_focused
-                } else {
-                    pane.seen
-                };
-                app.agent_tint.bg_for(state, seen)
-            });
-            if let Some(bg) = tint {
-                let inner = info.inner_rect;
-                let buf = frame.buffer_mut();
-                for y in inner.y..inner.y + inner.height {
-                    for x in inner.x..inner.x + inner.width {
-                        let cell = &mut buf[(x, y)];
-                        cell.set_style(cell.style().bg(bg));
-                    }
-                }
-            } else {
+            // Fall back to the historical unfocused dimming only when no state
+            // recolour applied — fully backward-compatible when agent_tint is off.
+            if state_fg.is_none() && state_bg.is_none() {
                 let should_dim = !info.is_focused && multi_pane && !terminal_active;
                 if should_dim {
                     let inner = info.inner_rect;

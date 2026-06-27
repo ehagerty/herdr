@@ -292,6 +292,12 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 # done = "#0a3010"         # agent finished, pane not yet viewed (clears on focus)
 # working = "..."          # optional: while the agent is working
 # idle = "..."             # optional: idle and already viewed
+# Foreground (text) colours per state — recolours only default-coloured cells
+# (tmux window-style), so syntax-highlighted output is preserved:
+# needs_input_fg = "#ffffff"  # white on brown = waiting
+# working_fg = "#28fe14"      # green on black = live
+# done_fg = "#808080"         # grey on black = finished
+# idle_fg = "#808080"
 # done_on_unfocused = false  # true: "done" keys off focus, not herdr's view-based
 #                            # `seen` — so the done wash fires on visible-but-unfocused
 #                            # panes (all-visible split layouts), clearing when focused.

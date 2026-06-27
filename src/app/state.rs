@@ -68,6 +68,11 @@ pub struct AgentTint {
     pub working: Option<Color>,
     /// Idle + seen — quiescent and already viewed.
     pub idle: Option<Color>,
+    /// Per-state foreground (text) colours, paired with the backgrounds above.
+    pub needs_input_fg: Option<Color>,
+    pub done_fg: Option<Color>,
+    pub working_fg: Option<Color>,
+    pub idle_fg: Option<Color>,
     /// When true, the render path passes pane focus (`!is_focused`) in place of
     /// herdr's `seen` to [`bg_for`], so the done wash works on visible-but-
     /// unfocused panes (all-visible split layouts). See `done_on_unfocused` in config.
@@ -84,23 +89,28 @@ impl AgentTint {
             done: parse(&cfg.done),
             working: parse(&cfg.working),
             idle: parse(&cfg.idle),
+            needs_input_fg: parse(&cfg.needs_input_fg),
+            done_fg: parse(&cfg.done_fg),
+            working_fg: parse(&cfg.working_fg),
+            idle_fg: parse(&cfg.idle_fg),
             done_on_unfocused: cfg.done_on_unfocused,
         }
     }
 
-    /// Background tint for a pane in `(state, seen)`, or `None` when tinting is
-    /// disabled or no color is configured for that state. The `(state, seen)`
-    /// arms match `state_dot` exactly so the wash agrees with the sidebar dot.
-    pub fn bg_for(&self, state: AgentState, seen: bool) -> Option<Color> {
+    /// Default `(fg, bg)` override for a pane in `(state, seen)`, or `(None, None)`
+    /// when tinting is disabled or nothing is configured for that state. The arms
+    /// match `state_dot`, so the recolour agrees with the sidebar dot. These feed
+    /// the pane's *default* colours only, so explicitly-coloured output is kept.
+    pub fn default_colors(&self, state: AgentState, seen: bool) -> (Option<Color>, Option<Color>) {
         if !self.enabled {
-            return None;
+            return (None, None);
         }
         match (state, seen) {
-            (AgentState::Blocked, _) => self.needs_input,
-            (AgentState::Idle, false) => self.done,
-            (AgentState::Working, _) => self.working,
-            (AgentState::Idle, true) => self.idle,
-            (AgentState::Unknown, _) => None,
+            (AgentState::Blocked, _) => (self.needs_input_fg, self.needs_input),
+            (AgentState::Idle, false) => (self.done_fg, self.done),
+            (AgentState::Working, _) => (self.working_fg, self.working),
+            (AgentState::Idle, true) => (self.idle_fg, self.idle),
+            (AgentState::Unknown, _) => (None, None),
         }
     }
 }

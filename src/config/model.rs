@@ -986,6 +986,13 @@ pub struct AgentTintConfig {
     pub working: Option<String>,
     /// Background when the agent is idle and already viewed (Idle + seen).
     pub idle: Option<String>,
+    /// Foreground (text) colour for each state. Recolours only *default*-coloured
+    /// cells (tmux `window-style` semantics) — explicitly-coloured output is kept.
+    /// Pair with the matching background above, e.g. `working_fg = "#28FE14"`.
+    pub needs_input_fg: Option<String>,
+    pub done_fg: Option<String>,
+    pub working_fg: Option<String>,
+    pub idle_fg: Option<String>,
     /// Drive the done/idle distinction off pane **focus** instead of herdr's
     /// view-based `seen`. With this on, a finished (idle) pane shows `done`
     /// while unfocused and clears (`idle`) when you focus it — so the "done"
