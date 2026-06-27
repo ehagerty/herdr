@@ -210,17 +210,33 @@ impl TileLayout {
         set_ratio_at(&mut self.root, path, ratio.clamp(0.1, 0.9));
     }
 
-    /// Auto-resize: widen the focused pane by biasing its nearest enclosing
-    /// *horizontal* split toward it, with every other horizontal split reset to
-    /// even (0.5). Idempotent — safe to call on every focus change, no stale
-    /// bias accumulates. `bias` is the focused side's share of that split
-    /// (clamped 0.5..=0.9). Vertical splits are left untouched, so row heights
-    /// are preserved. Approximates tmux's "focused pane wider, rest even".
-    pub fn apply_focus_resize(&mut self, bias: f32) {
+    /// Auto-resize: widen the focused pane so it is `weight`× as wide as each
+    /// other pane, with all others equal. Back-solves every *horizontal* split's
+    /// ratio from per-pane weights (focused = `weight`, others = 1), so target
+    /// widths hold regardless of BSP tree shape — unlike nudging a single split.
+    /// Idempotent (recomputed from weights each call). Vertical splits are left
+    /// untouched, preserving row heights. Approximates tmux focused-wider.
+    pub fn apply_focus_resize(&mut self, weight: f32) {
         let focus = self.focus;
-        let bias = bias.clamp(0.5, 0.9);
+        let weight = weight.max(1.0);
 
-        fn reset_h(node: &mut Node) {
+        // Total layout weight of a subtree: focused pane counts `weight`, others 1.
+        fn subtree_weight(node: &Node, focus: PaneId, weight: f32) -> f32 {
+            match node {
+                Node::Pane(id) => {
+                    if *id == focus {
+                        weight
+                    } else {
+                        1.0
+                    }
+                }
+                Node::Split { first, second, .. } => {
+                    subtree_weight(first, focus, weight) + subtree_weight(second, focus, weight)
+                }
+            }
+        }
+
+        fn set_h_ratios(node: &mut Node, focus: PaneId, weight: f32) {
             if let Node::Split {
                 direction,
                 ratio,
@@ -229,47 +245,19 @@ impl TileLayout {
             } = node
             {
                 if *direction == Direction::Horizontal {
-                    *ratio = 0.5;
+                    let wf = subtree_weight(first, focus, weight);
+                    let ws = subtree_weight(second, focus, weight);
+                    let total = wf + ws;
+                    if total > 0.0 {
+                        *ratio = (wf / total).clamp(0.1, 0.9);
+                    }
                 }
-                reset_h(first);
-                reset_h(second);
+                set_h_ratios(first, focus, weight);
+                set_h_ratios(second, focus, weight);
             }
         }
 
-        // Returns (focus_in_subtree, already_biased). Biases only the deepest
-        // horizontal split whose subtree contains the focused pane.
-        fn bias_h(node: &mut Node, focus: PaneId, bias: f32) -> (bool, bool) {
-            match node {
-                Node::Pane(id) => (*id == focus, false),
-                Node::Split {
-                    direction,
-                    ratio,
-                    first,
-                    second,
-                } => {
-                    let (in_first, biased) = bias_h(first, focus, bias);
-                    if in_first {
-                        if !biased && *direction == Direction::Horizontal {
-                            *ratio = bias;
-                            return (true, true);
-                        }
-                        return (true, biased);
-                    }
-                    let (in_second, biased) = bias_h(second, focus, bias);
-                    if in_second {
-                        if !biased && *direction == Direction::Horizontal {
-                            *ratio = 1.0 - bias;
-                            return (true, true);
-                        }
-                        return (true, biased);
-                    }
-                    (false, false)
-                }
-            }
-        }
-
-        reset_h(&mut self.root);
-        bias_h(&mut self.root, focus, bias);
+        set_h_ratios(&mut self.root, focus, weight);
     }
 
     /// Adjust the nearest split in the given direction for the focused pane.

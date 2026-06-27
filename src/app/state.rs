@@ -1794,7 +1794,7 @@ impl AppState {
             show_agent_labels_on_pane_borders: false,
             agent_tint: AgentTint::default(),
             focus_resize: false,
-            focus_resize_ratio: 0.62,
+            focus_resize_ratio: 1.8,
             pane_history_persistence: false,
             reveal_hidden_cursor_for_cjk_ime: false,
             cjk_ime_agent_filter_configured: false,

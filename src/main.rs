@@ -304,7 +304,7 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 
 # Auto-resize: widen the focused pane on focus (approximates tmux focused-wider).
 # focus_resize = false
-# focus_resize_ratio = 0.62   # focused side's share of its nearest horizontal split
+# focus_resize_ratio = 1.8    # focused pane is this many times wider than each other pane
 
 # Agent panel ordering: "spaces" (grouped by space) or "priority" (attention queue).
 # "workspaces" is accepted as an alias for "spaces".

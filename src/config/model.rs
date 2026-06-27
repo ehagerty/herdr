@@ -786,8 +786,8 @@ pub struct UiConfig {
     pub agent_tint: AgentTintConfig,
     /// Auto-resize: widen the focused pane on focus. Default: false.
     pub focus_resize: bool,
-    /// Focused pane's share of its nearest horizontal split when `focus_resize`
-    /// is on (clamped 0.5..=0.9). Default: 0.62.
+    /// How many times wider the focused pane is than each other pane when
+    /// `focus_resize` is on (e.g. 1.8 = 80% wider; min 1.0). Default: 1.8.
     pub focus_resize_ratio: f32,
     /// Agent sidebar ordering. Saved values are "spaces" or "priority". Default: "spaces".
     pub agent_panel_sort: AgentPanelSortConfig,
@@ -1025,7 +1025,7 @@ impl Default for UiConfig {
             show_agent_labels_on_pane_borders: false,
             agent_tint: AgentTintConfig::default(),
             focus_resize: false,
-            focus_resize_ratio: 0.62,
+            focus_resize_ratio: 1.8,
             agent_panel_sort: AgentPanelSortConfig::Spaces,
             accent: "cyan".into(),
             toast: ToastConfig::default(),
