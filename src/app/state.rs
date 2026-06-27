@@ -68,6 +68,10 @@ pub struct AgentTint {
     pub working: Option<Color>,
     /// Idle + seen — quiescent and already viewed.
     pub idle: Option<Color>,
+    /// When true, the render path passes pane focus (`!is_focused`) in place of
+    /// herdr's `seen` to [`bg_for`], so the done wash works on visible-but-
+    /// unfocused panes (all-visible split layouts). See `done_on_unfocused` in config.
+    pub done_on_unfocused: bool,
 }
 
 impl AgentTint {
@@ -80,6 +84,7 @@ impl AgentTint {
             done: parse(&cfg.done),
             working: parse(&cfg.working),
             idle: parse(&cfg.idle),
+            done_on_unfocused: cfg.done_on_unfocused,
         }
     }
 

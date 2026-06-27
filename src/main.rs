@@ -292,6 +292,9 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 # done = "#0a3010"         # agent finished, pane not yet viewed (clears on focus)
 # working = "..."          # optional: while the agent is working
 # idle = "..."             # optional: idle and already viewed
+# done_on_unfocused = false  # true: "done" keys off focus, not herdr's view-based
+#                            # `seen` — so the done wash fires on visible-but-unfocused
+#                            # panes (all-visible split layouts), clearing when focused.
 
 # Agent panel ordering: "spaces" (grouped by space) or "priority" (attention queue).
 # "workspaces" is accepted as an alias for "spaces".

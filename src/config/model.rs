@@ -986,6 +986,13 @@ pub struct AgentTintConfig {
     pub working: Option<String>,
     /// Background when the agent is idle and already viewed (Idle + seen).
     pub idle: Option<String>,
+    /// Drive the done/idle distinction off pane **focus** instead of herdr's
+    /// view-based `seen`. With this on, a finished (idle) pane shows `done`
+    /// while unfocused and clears (`idle`) when you focus it — so the "done"
+    /// wash works even in an all-visible split layout, where herdr would
+    /// otherwise mark every visible pane seen. `needs_input` is unaffected.
+    /// Default: false (use herdr's `seen`, which signals background-tab completions).
+    pub done_on_unfocused: bool,
 }
 
 impl Default for UiConfig {

@@ -332,7 +332,15 @@ pub(super) fn render_panes(
             // back to the historical unfocused dimming — fully backward-compatible.
             let tint = ws.pane_state(info.id).and_then(|pane| {
                 let state = app.terminals.get(&pane.attached_terminal_id)?.state;
-                app.agent_tint.bg_for(state, pane.seen)
+                // `done_on_unfocused` swaps herdr's view-based `seen` for pane
+                // focus, so a finished pane greens while unfocused and clears
+                // when focused (all-visible split layouts). Otherwise use `seen`.
+                let seen = if app.agent_tint.done_on_unfocused {
+                    info.is_focused
+                } else {
+                    pane.seen
+                };
+                app.agent_tint.bg_for(state, seen)
             });
             if let Some(bg) = tint {
                 let inner = info.inner_rect;
