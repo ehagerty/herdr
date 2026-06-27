@@ -321,6 +321,7 @@ fn api_method_name(method: &Method) -> &'static str {
         Method::PaneCurrent(_) => "pane.current",
         Method::PaneGet(_) => "pane.get",
         Method::PaneRename(_) => "pane.rename",
+        Method::PaneMarkUnread(_) => "pane.mark_unread",
         Method::PaneSendText(_) => "pane.send_text",
         Method::PaneSendKeys(_) => "pane.send_keys",
         Method::PaneSendInput(_) => "pane.send_input",

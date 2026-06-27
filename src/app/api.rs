@@ -872,6 +872,9 @@ impl App {
             Method::PaneCurrent(params) => return self.handle_pane_current(request.id, params),
             Method::PaneGet(target) => return self.handle_pane_get(request.id, target),
             Method::PaneRename(params) => return self.handle_pane_rename(request.id, params),
+            Method::PaneMarkUnread(params) => {
+                return self.handle_pane_mark_unread(request.id, params)
+            }
             Method::PaneRead(params) => return self.handle_pane_read(request.id, params),
             Method::PaneReportAgent(params) => {
                 return self.handle_pane_report_agent(request.id, params);

@@ -324,11 +324,19 @@ pub(super) fn render_panes(
             // syntax-highlighted output is preserved. `done_on_unfocused` swaps
             // herdr's view-based `seen` for pane focus, so a finished pane recolours
             // while unfocused and clears when focused (all-visible split layouts).
+            let marked_unread = ws
+                .pane_state(info.id)
+                .map(|pane| pane.marked_unread)
+                .unwrap_or(false);
             let (state_fg, state_bg) = if app.agent_tint.enabled && info.is_focused {
                 // The focused pane is always "live" (green-on-black), regardless of
                 // its agent state — tmux window-active-style. The green border still
                 // marks focus; this makes the active pane unmistakable.
                 (app.agent_tint.working_fg, app.agent_tint.working)
+            } else if app.agent_tint.enabled && marked_unread {
+                // mark-unread: an unfocused, user-flagged pane shows the waiting
+                // tint until focused (focusing clears the flag — read/unread).
+                (app.agent_tint.needs_input_fg, app.agent_tint.needs_input)
             } else {
                 ws.pane_state(info.id)
                     .and_then(|pane| {

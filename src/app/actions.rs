@@ -320,6 +320,10 @@ impl AppState {
             if focus_resize {
                 tab.layout.apply_focus_resize(focus_resize_ratio);
             }
+            // Focusing a pane clears its mark-unread flag (read/unread semantics).
+            if let Some(pane) = tab.panes.get_mut(&pane_id) {
+                pane.marked_unread = false;
+            }
             self.previous_pane_focus = previous;
             self.mark_session_dirty();
             return true;

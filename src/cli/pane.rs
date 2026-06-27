@@ -1,7 +1,8 @@
 use crate::api::schema::{
     Method, PaneCurrentParams, PaneDirection, PaneEdgesParams, PaneFocusDirectionParams,
     PaneLayoutParams, PaneListParams, PaneMoveDestination, PaneMoveParams, PaneNeighborParams,
-    PaneProcessInfoParams, PaneReadParams, PaneReleaseAgentParams, PaneRenameParams,
+    PaneMarkUnreadParams, PaneProcessInfoParams, PaneReadParams, PaneReleaseAgentParams,
+    PaneRenameParams,
     PaneReportAgentParams, PaneReportAgentSessionParams, PaneReportMetadataParams,
     PaneResizeParams, PaneSendInputParams, PaneSendKeysParams, PaneSendTextParams, PaneSplitParams,
     PaneSwapParams, PaneTarget, PaneZoomMode, PaneZoomParams, ReadFormat, ReadSource, Request,
@@ -27,6 +28,7 @@ pub(super) fn run_pane_command(args: &[String]) -> std::io::Result<i32> {
         "zoom" => pane_zoom(&args[1..]),
         "read" => pane_read(&args[1..]),
         "rename" => pane_rename(&args[1..]),
+        "mark-unread" => pane_mark_unread(&args[1..]),
         "split" => pane_split(&args[1..]),
         "swap" => pane_swap(&args[1..]),
         "move" => pane_move(&args[1..]),
@@ -447,6 +449,21 @@ fn pane_rename(args: &[String]) -> std::io::Result<i32> {
         method: Method::PaneRename(PaneRenameParams {
             pane_id: super::normalize_pane_id(raw_pane_id),
             label,
+        }),
+    })?)
+}
+
+fn pane_mark_unread(args: &[String]) -> std::io::Result<i32> {
+    let Some(raw_pane_id) = args.first() else {
+        eprintln!("usage: herdr pane mark-unread <pane_id> [--clear]");
+        return Ok(2);
+    };
+    let unread = !args.iter().any(|a| a == "--clear");
+    super::print_response(&super::send_request(&Request {
+        id: "cli:pane:mark_unread".into(),
+        method: Method::PaneMarkUnread(PaneMarkUnreadParams {
+            pane_id: super::normalize_pane_id(raw_pane_id),
+            unread,
         }),
     })?)
 }
@@ -1441,6 +1458,7 @@ fn print_pane_help() {
     );
     eprintln!("  herdr pane zoom [<pane_id>|--pane ID|--current] [--toggle|--on|--off]");
     eprintln!("  herdr pane rename <pane_id> <label>|--clear");
+    eprintln!("  herdr pane mark-unread <pane_id> [--clear]");
     eprintln!("  herdr pane read <pane_id> [--source visible|recent|recent-unwrapped] [--lines N] [--format text|ansi] [--ansi]");
     eprintln!(
         "  herdr pane split [<pane_id>|--pane ID|--current] --direction right|down [--ratio FLOAT] [--cwd PATH] [--env KEY=VALUE] [--focus] [--no-focus]"

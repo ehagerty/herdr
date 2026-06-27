@@ -213,6 +213,14 @@ pub struct PaneRenameParams {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PaneMarkUnreadParams {
+    pub pane_id: String,
+    /// Set the focus-cleared "unread" flag. true = mark, false = clear.
+    #[serde(default)]
+    pub unread: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PaneSendTextParams {
     pub pane_id: String,
     pub text: String,

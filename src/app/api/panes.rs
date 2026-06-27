@@ -7,7 +7,8 @@ use crate::api::schema::{
     PaneLayoutRect, PaneLayoutSnapshot, PaneLayoutSplit, PaneListParams, PaneMoveDestination,
     PaneMoveParams, PaneMoveReason, PaneMoveResult, PaneNeighborParams, PaneNeighborResult,
     PaneProcessInfo, PaneProcessInfoParams, PaneProcessInfoProcess, PaneReadParams, PaneReadResult,
-    PaneReleaseAgentParams, PaneRenameParams, PaneReportAgentParams, PaneReportAgentSessionParams,
+    PaneMarkUnreadParams, PaneReleaseAgentParams, PaneRenameParams, PaneReportAgentParams,
+    PaneReportAgentSessionParams,
     PaneReportMetadataParams, PaneResizeParams, PaneResizeReason, PaneResizeResult,
     PaneSendInputParams, PaneSendKeysParams, PaneSendTextParams, PaneSplitParams, PaneSwapParams,
     PaneSwapReason, PaneSwapResult, PaneTarget, PaneZoomMode, PaneZoomParams, PaneZoomReason,
@@ -1134,6 +1135,37 @@ impl App {
         let pane = self.pane_info(ws_idx, pane_id).unwrap();
 
         encode_success(id, ResponseResult::PaneInfo { pane })
+    }
+
+    pub(super) fn handle_pane_mark_unread(
+        &mut self,
+        id: String,
+        params: PaneMarkUnreadParams,
+    ) -> String {
+        let Some((ws_idx, pane_id)) = self.parse_pane_id(&params.pane_id) else {
+            return pane_not_found(id, &params.pane_id);
+        };
+        let Some(tab_idx) = self
+            .state
+            .workspaces
+            .get(ws_idx)
+            .and_then(|ws| ws.find_tab_index_for_pane(pane_id))
+        else {
+            return pane_not_found(id, &params.pane_id);
+        };
+        let updated = self
+            .state
+            .workspaces
+            .get_mut(ws_idx)
+            .and_then(|ws| ws.tabs.get_mut(tab_idx))
+            .and_then(|tab| tab.panes.get_mut(&pane_id))
+            .map(|pane| pane.marked_unread = params.unread)
+            .is_some();
+        if !updated {
+            return pane_not_found(id, &params.pane_id);
+        }
+        self.state.mark_session_dirty();
+        encode_success(id, ResponseResult::Ok {})
     }
 
     pub(super) fn handle_pane_read(&mut self, id: String, params: PaneReadParams) -> String {

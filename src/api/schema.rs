@@ -139,6 +139,8 @@ pub enum Method {
     PaneGet(PaneTarget),
     #[serde(rename = "pane.rename")]
     PaneRename(PaneRenameParams),
+    #[serde(rename = "pane.mark_unread")]
+    PaneMarkUnread(PaneMarkUnreadParams),
     #[serde(rename = "pane.send_text")]
     PaneSendText(PaneSendTextParams),
     #[serde(rename = "pane.send_keys")]
