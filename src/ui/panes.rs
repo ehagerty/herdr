@@ -324,18 +324,24 @@ pub(super) fn render_panes(
             // syntax-highlighted output is preserved. `done_on_unfocused` swaps
             // herdr's view-based `seen` for pane focus, so a finished pane recolours
             // while unfocused and clears when focused (all-visible split layouts).
-            let (state_fg, state_bg) = ws
-                .pane_state(info.id)
-                .and_then(|pane| {
-                    let state = app.terminals.get(&pane.attached_terminal_id)?.state;
-                    let seen = if app.agent_tint.done_on_unfocused {
-                        info.is_focused
-                    } else {
-                        pane.seen
-                    };
-                    Some(app.agent_tint.default_colors(state, seen))
-                })
-                .unwrap_or((None, None));
+            let (state_fg, state_bg) = if app.agent_tint.enabled && info.is_focused {
+                // The focused pane is always "live" (green-on-black), regardless of
+                // its agent state — tmux window-active-style. The green border still
+                // marks focus; this makes the active pane unmistakable.
+                (app.agent_tint.working_fg, app.agent_tint.working)
+            } else {
+                ws.pane_state(info.id)
+                    .and_then(|pane| {
+                        let state = app.terminals.get(&pane.attached_terminal_id)?.state;
+                        let seen = if app.agent_tint.done_on_unfocused {
+                            info.is_focused
+                        } else {
+                            pane.seen
+                        };
+                        Some(app.agent_tint.default_colors(state, seen))
+                    })
+                    .unwrap_or((None, None))
+            };
             rt.set_state_default_colors(state_fg, state_bg);
 
             let show_cursor = info.is_focused

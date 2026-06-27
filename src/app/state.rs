@@ -1433,6 +1433,9 @@ pub struct AppState {
     pub show_agent_labels_on_pane_borders: bool,
     /// Resolved opt-in pane-background tints by agent state (`[ui.agent_tint]`).
     pub agent_tint: AgentTint,
+    /// Auto-resize: widen the focused pane on focus (`[ui] focus_resize`).
+    pub focus_resize: bool,
+    pub focus_resize_ratio: f32,
     pub pane_history_persistence: bool,
     /// Expose the focused pane's cursor anchor to the outer terminal even when
     /// the pane requested `?25l`. See `[experimental] reveal_hidden_cursor_for_cjk_ime`.
@@ -1790,6 +1793,8 @@ impl AppState {
             pane_gaps: false,
             show_agent_labels_on_pane_borders: false,
             agent_tint: AgentTint::default(),
+            focus_resize: false,
+            focus_resize_ratio: 0.62,
             pane_history_persistence: false,
             reveal_hidden_cursor_for_cjk_ime: false,
             cjk_ime_agent_filter_configured: false,

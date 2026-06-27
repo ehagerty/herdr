@@ -308,6 +308,8 @@ impl AppState {
             return false;
         }
 
+        let focus_resize = self.focus_resize;
+        let focus_resize_ratio = self.focus_resize_ratio;
         self.switch_workspace_tab(ws_idx, tab_idx);
         if let Some(tab) = self
             .workspaces
@@ -315,6 +317,9 @@ impl AppState {
             .and_then(|ws| ws.tabs.get_mut(tab_idx))
         {
             tab.layout.focus_pane(pane_id);
+            if focus_resize {
+                tab.layout.apply_focus_resize(focus_resize_ratio);
+            }
             self.previous_pane_focus = previous;
             self.mark_session_dirty();
             return true;

@@ -302,6 +302,10 @@ const DEFAULT_CONFIG: &str = r##"# herdr configuration
 #                            # `seen` — so the done wash fires on visible-but-unfocused
 #                            # panes (all-visible split layouts), clearing when focused.
 
+# Auto-resize: widen the focused pane on focus (approximates tmux focused-wider).
+# focus_resize = false
+# focus_resize_ratio = 0.62   # focused side's share of its nearest horizontal split
+
 # Agent panel ordering: "spaces" (grouped by space) or "priority" (attention queue).
 # "workspaces" is accepted as an alias for "spaces".
 # agent_panel_sort = "spaces"

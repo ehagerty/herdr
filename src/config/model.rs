@@ -784,6 +784,11 @@ pub struct UiConfig {
     /// Tint pane backgrounds by agent state (needs-input / done / working / idle).
     /// Opt-in; disabled by default. See [`AgentTintConfig`].
     pub agent_tint: AgentTintConfig,
+    /// Auto-resize: widen the focused pane on focus. Default: false.
+    pub focus_resize: bool,
+    /// Focused pane's share of its nearest horizontal split when `focus_resize`
+    /// is on (clamped 0.5..=0.9). Default: 0.62.
+    pub focus_resize_ratio: f32,
     /// Agent sidebar ordering. Saved values are "spaces" or "priority". Default: "spaces".
     pub agent_panel_sort: AgentPanelSortConfig,
     /// Accent color for highlights, borders, and navigation UI.
@@ -1019,6 +1024,8 @@ impl Default for UiConfig {
             pane_gaps: true,
             show_agent_labels_on_pane_borders: false,
             agent_tint: AgentTintConfig::default(),
+            focus_resize: false,
+            focus_resize_ratio: 0.62,
             agent_panel_sort: AgentPanelSortConfig::Spaces,
             accent: "cyan".into(),
             toast: ToastConfig::default(),

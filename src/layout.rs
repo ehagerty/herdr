@@ -210,6 +210,68 @@ impl TileLayout {
         set_ratio_at(&mut self.root, path, ratio.clamp(0.1, 0.9));
     }
 
+    /// Auto-resize: widen the focused pane by biasing its nearest enclosing
+    /// *horizontal* split toward it, with every other horizontal split reset to
+    /// even (0.5). Idempotent — safe to call on every focus change, no stale
+    /// bias accumulates. `bias` is the focused side's share of that split
+    /// (clamped 0.5..=0.9). Vertical splits are left untouched, so row heights
+    /// are preserved. Approximates tmux's "focused pane wider, rest even".
+    pub fn apply_focus_resize(&mut self, bias: f32) {
+        let focus = self.focus;
+        let bias = bias.clamp(0.5, 0.9);
+
+        fn reset_h(node: &mut Node) {
+            if let Node::Split {
+                direction,
+                ratio,
+                first,
+                second,
+            } = node
+            {
+                if *direction == Direction::Horizontal {
+                    *ratio = 0.5;
+                }
+                reset_h(first);
+                reset_h(second);
+            }
+        }
+
+        // Returns (focus_in_subtree, already_biased). Biases only the deepest
+        // horizontal split whose subtree contains the focused pane.
+        fn bias_h(node: &mut Node, focus: PaneId, bias: f32) -> (bool, bool) {
+            match node {
+                Node::Pane(id) => (*id == focus, false),
+                Node::Split {
+                    direction,
+                    ratio,
+                    first,
+                    second,
+                } => {
+                    let (in_first, biased) = bias_h(first, focus, bias);
+                    if in_first {
+                        if !biased && *direction == Direction::Horizontal {
+                            *ratio = bias;
+                            return (true, true);
+                        }
+                        return (true, biased);
+                    }
+                    let (in_second, biased) = bias_h(second, focus, bias);
+                    if in_second {
+                        if !biased && *direction == Direction::Horizontal {
+                            *ratio = 1.0 - bias;
+                            return (true, true);
+                        }
+                        return (true, biased);
+                    }
+                    (false, false)
+                }
+            }
+        }
+
+        reset_h(&mut self.root);
+        bias_h(&mut self.root, focus, bias);
+    }
+
     /// Adjust the nearest split in the given direction for the focused pane.
     /// `delta` is positive to grow, negative to shrink.
     pub fn resize_focused(&mut self, nav: NavDirection, delta: f32, area: Rect) {
