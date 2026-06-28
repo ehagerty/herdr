@@ -320,9 +320,12 @@ impl AppState {
             if focus_resize {
                 tab.layout.apply_focus_resize(focus_resize_ratio);
             }
-            // Focusing a pane clears its mark-unread flag (read/unread semantics).
+            // Focusing a pane is "reading" it: clear the mark-unread flag and mark
+            // it seen, so both attention tints (manual mark + done-while-away)
+            // revert to quiescent the moment you look at it (read/unread semantics).
             if let Some(pane) = tab.panes.get_mut(&pane_id) {
                 pane.marked_unread = false;
+                pane.seen = true;
             }
             self.previous_pane_focus = previous;
             self.mark_session_dirty();
@@ -2641,9 +2644,15 @@ impl AppState {
         pane_id: PaneId,
         change: &EffectiveStateChange,
     ) -> Option<bool> {
-        let is_active_tab = self.pane_is_in_active_tab(ws_idx, pane_id);
-        let suppress_active_tab_notifications =
-            active_tab_suppresses_notifications(is_active_tab, self.outer_terminal_focus);
+        // A completion (Working→Idle) counts as "seen" only when you're actually
+        // looking at *this* pane: it's the focused pane of the active workspace and
+        // Ghostty itself has focus. A pane that finishes in another split, another
+        // tab, or while Ghostty is unfocused stays unseen, so the tint can flag it
+        // as done-awaiting-read until you focus it. (Was tab-level, which marked
+        // every split in the active tab "seen" the moment any one was focused.)
+        let is_focused_pane = self.active == Some(ws_idx)
+            && self.workspaces[ws_idx].focused_pane_id() == Some(pane_id)
+            && self.outer_terminal_focus.unwrap_or(false);
         let pane = self.workspaces[ws_idx]
             .tabs
             .iter_mut()
@@ -2652,7 +2661,7 @@ impl AppState {
         if change.state != AgentState::Idle {
             pane.seen = true;
         } else if is_completion_transition(change) {
-            pane.seen = suppress_active_tab_notifications;
+            pane.seen = is_focused_pane;
         }
         let seen = pane.seen;
 

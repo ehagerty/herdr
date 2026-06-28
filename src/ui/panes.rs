@@ -317,40 +317,24 @@ pub(super) fn render_panes(
 
     for info in &app.view.pane_infos {
         if let Some(rt) = app.runtime_for_pane_in_workspace(terminal_runtimes, ws_idx, info.id) {
-            // Agent-state content recolour (opt-in, `[ui.agent_tint]`). Compute a
-            // (fg, bg) default-colour override from the pane's (state, seen) — the
-            // same arms as the sidebar dot — and hand it to the pane BEFORE render.
-            // window-style semantics: only default-coloured cells take it, so
-            // syntax-highlighted output is preserved. `done_on_unfocused` swaps
-            // herdr's view-based `seen` for pane focus, so a finished pane recolours
-            // while unfocused and clears when focused (all-visible split layouts).
-            let marked_unread = ws
-                .pane_state(info.id)
-                .map(|pane| pane.marked_unread)
-                .unwrap_or(false);
-            let (state_fg, state_bg) = if app.agent_tint.enabled && marked_unread {
-                // mark-unread wins over everything (even focus): the waiting tint
-                // shows in place the moment you mark — tmux behaviour. The green
-                // border still marks focus. Focusing the pane clears the flag, so
-                // a marked pane reverts to its normal colour once read (read/unread).
-                (app.agent_tint.needs_input_fg, app.agent_tint.needs_input)
-            } else if app.agent_tint.enabled && info.is_focused {
-                // The focused pane is otherwise always "live" (green-on-black),
-                // regardless of agent state — tmux window-active-style.
-                (app.agent_tint.working_fg, app.agent_tint.working)
-            } else {
-                ws.pane_state(info.id)
-                    .and_then(|pane| {
-                        let state = app.terminals.get(&pane.attached_terminal_id)?.state;
-                        let seen = if app.agent_tint.done_on_unfocused {
-                            info.is_focused
-                        } else {
-                            pane.seen
-                        };
-                        Some(app.agent_tint.default_colors(state, seen))
-                    })
-                    .unwrap_or((None, None))
-            };
+            // Agent-state pane tint (opt-in, `[ui.agent_tint]`). Resolve a (fg, bg)
+            // default-colour override from the pane's state, focus, `seen`, and
+            // mark-unread flag, then hand it to the pane BEFORE render. window-style
+            // semantics: only default-coloured cells take it, so syntax-highlighted
+            // output is preserved. All precedence lives in `AgentTint::tint_for` —
+            // here we only gather the four inputs. `seen` is now true per-pane
+            // tracking (set when *this* pane is focused / finishes while focused),
+            // so a pane that finishes in the background flags itself until read.
+            let pane_state = ws.pane_state(info.id);
+            let marked_unread = pane_state.map(|pane| pane.marked_unread).unwrap_or(false);
+            let seen = pane_state.map(|pane| pane.seen).unwrap_or(true);
+            let agent_state = pane_state
+                .and_then(|pane| app.terminals.get(&pane.attached_terminal_id))
+                .map(|terminal| terminal.state)
+                .unwrap_or(crate::detect::AgentState::Unknown);
+            let (state_fg, state_bg) =
+                app.agent_tint
+                    .tint_for(agent_state, info.is_focused, seen, marked_unread);
             rt.set_state_default_colors(state_fg, state_bg);
 
             let show_cursor = info.is_focused

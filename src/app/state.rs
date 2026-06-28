@@ -97,20 +97,42 @@ impl AgentTint {
         }
     }
 
-    /// Default `(fg, bg)` override for a pane in `(state, seen)`, or `(None, None)`
-    /// when tinting is disabled or nothing is configured for that state. The arms
-    /// match `state_dot`, so the recolour agrees with the sidebar dot. These feed
-    /// the pane's *default* colours only, so explicitly-coloured output is kept.
-    pub fn default_colors(&self, state: AgentState, seen: bool) -> (Option<Color>, Option<Color>) {
+    /// Resolve the `(fg, bg)` default-colour override for a pane, or `(None, None)`
+    /// when tinting is disabled. These feed the pane's *default* colours only, so
+    /// explicitly-coloured output (syntax highlighting) is preserved.
+    ///
+    /// Precedence — highest first; the first match wins:
+    ///   1. `marked_unread`         → `needs_input` (attention). Explicit user mark;
+    ///      wins even over focus, so the tint shows the instant you mark in place.
+    ///   2. `is_focused`            → `working` (live). The pane you're in is always
+    ///      "live", regardless of agent state — tmux window-active style.
+    ///   3. `Blocked`               → `needs_input` (attention). Agent awaiting input
+    ///      in a pane you're *not* in.
+    ///   4. `Working`               → `working` (live). Running in the background.
+    ///   5. `Idle` && `!seen`       → `done` (attention). Finished while you were
+    ///      elsewhere — flags itself until you focus (read) it.
+    ///   6. `Idle` && `seen` / `Unknown` → `idle` (quiescent).
+    pub fn tint_for(
+        &self,
+        state: AgentState,
+        is_focused: bool,
+        seen: bool,
+        marked_unread: bool,
+    ) -> (Option<Color>, Option<Color>) {
         if !self.enabled {
             return (None, None);
         }
-        match (state, seen) {
-            (AgentState::Blocked, _) => (self.needs_input_fg, self.needs_input),
-            (AgentState::Idle, false) => (self.done_fg, self.done),
-            (AgentState::Working, _) => (self.working_fg, self.working),
-            (AgentState::Idle, true) => (self.idle_fg, self.idle),
-            (AgentState::Unknown, _) => (None, None),
+        if marked_unread {
+            return (self.needs_input_fg, self.needs_input);
+        }
+        if is_focused {
+            return (self.working_fg, self.working);
+        }
+        match state {
+            AgentState::Blocked => (self.needs_input_fg, self.needs_input),
+            AgentState::Working => (self.working_fg, self.working),
+            AgentState::Idle if !seen => (self.done_fg, self.done),
+            AgentState::Idle | AgentState::Unknown => (self.idle_fg, self.idle),
         }
     }
 }
