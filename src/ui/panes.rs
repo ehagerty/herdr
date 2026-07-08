@@ -312,6 +312,20 @@ pub(super) fn render_panes(
 
     for info in &app.view.pane_infos {
         if let Some(rt) = app.runtime_for_pane_in_workspace(terminal_runtimes, ws_idx, info.id) {
+            // Agent-state pane tint (`[ui.agent_tint]`, opt-in). Resolve a
+            // (fg, bg) default-colour override from the pane's agent state + focus
+            // and hand it to the pane BEFORE render. window-style semantics: only
+            // default-coloured cells take it, so syntax-highlighted output is kept.
+            // `(None, None)` (incl. when disabled) leaves the host colours intact.
+            let (state_fg, state_bg) = ws
+                .pane_state(info.id)
+                .and_then(|pane| {
+                    let state = app.terminals.get(&pane.attached_terminal_id)?.state;
+                    Some(app.agent_tint.tint_for(state, info.is_focused))
+                })
+                .unwrap_or((None, None));
+            rt.set_state_default_colors(state_fg, state_bg);
+
             let show_cursor = info.is_focused
                 && terminal_active
                 && !pane_is_scrolled_back(rt)

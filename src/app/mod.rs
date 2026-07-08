@@ -630,6 +630,7 @@ impl App {
             keybinds: config.keybinds(),
             spinner_tick: 0,
             palette: theme_palette,
+            agent_tint: state::AgentTint::from_config(&config.ui.agent_tint),
             theme_name,
             theme_runtime,
             host_terminal_appearance: None,
@@ -1393,6 +1394,7 @@ impl App {
                 }
                 self.state.sound = config.ui.sound.clone();
                 self.state.toast_config = config.ui.toast.clone();
+                self.state.agent_tint = state::AgentTint::from_config(&config.ui.agent_tint);
             }
         }
 

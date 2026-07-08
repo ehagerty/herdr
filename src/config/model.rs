@@ -815,6 +815,47 @@ pub struct UiConfig {
     pub toast: ToastConfig,
     /// Play sounds when agents change state in background workspaces.
     pub sound: SoundConfig,
+    /// Opt-in per-agent-state pane tint. Disabled by default. See [`AgentTintConfig`].
+    pub agent_tint: AgentTintConfig,
+}
+
+/// `[ui.agent_tint]` — opt-in per-agent-state pane tint. Recolours only
+/// *default*-coloured cells (tmux `window-style` semantics), so program output
+/// with explicit colours (syntax highlighting) is preserved.
+///
+/// The resolver is stateless and focus-based: the focused pane is always "live"
+/// (`working`, usually left unset so it inherits the host terminal's colours),
+/// and an unfocused pane paints from its agent state. Leave `working` unset so
+/// the streaming `Working`/`Unknown` states paint nothing — then only the two
+/// *settled* states (`needs_input`, `done`) ever paint a distinct colour, which
+/// keeps the tint strobe-free during a streaming turn.
+///
+/// ```toml
+/// [ui.agent_tint]
+/// enabled = true
+/// needs_input = "#4a3500"   # awaiting input (unfocused) — tan
+/// needs_input_fg = "#ffffff"
+/// done = "#262335"          # finished/idle (unfocused) — grey
+/// done_fg = "#808080"
+/// # working left unset -> focused + background-working panes keep host colours
+/// ```
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+pub struct AgentTintConfig {
+    /// Master switch. Default false — no tinting.
+    pub enabled: bool,
+    /// Background for a blocked/awaiting-input pane you are NOT focused on (`AgentState::Blocked`).
+    pub needs_input: Option<String>,
+    /// Background for an idle/finished pane you are NOT focused on (`AgentState::Idle`, unfocused).
+    pub done: Option<String>,
+    /// Background for the focused pane and background-working panes (`AgentState::Working`). Usually unset.
+    pub working: Option<String>,
+    /// Foreground (text) colour for a blocked/awaiting-input pane.
+    pub needs_input_fg: Option<String>,
+    /// Foreground (text) colour for an idle/finished pane.
+    pub done_fg: Option<String>,
+    /// Foreground (text) colour for the focused / background-working pane.
+    pub working_fg: Option<String>,
 }
 
 /// Cursor shape (DECSCUSR) used for the forced IME anchor.
@@ -1003,6 +1044,7 @@ impl Default for UiConfig {
             accent: "cyan".into(),
             toast: ToastConfig::default(),
             sound: SoundConfig::default(),
+            agent_tint: AgentTintConfig::default(),
         }
     }
 }

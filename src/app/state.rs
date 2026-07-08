@@ -1288,6 +1288,65 @@ pub(crate) struct PaneFocusTarget {
     pub pane_id: PaneId,
 }
 
+/// Resolved `[ui.agent_tint]` — parsed colours plus the state→(fg,bg) resolver.
+/// Built once at startup and on config reload from [`crate::config::AgentTintConfig`].
+///
+/// Only default-coloured cells take these overrides (tmux `window-style`
+/// semantics), so program output with explicit colours is preserved. See
+/// [`AgentTint::tint_for`] for the (stateless, focus-based) resolution rules.
+#[derive(Debug, Clone, Default)]
+pub struct AgentTint {
+    pub enabled: bool,
+    pub needs_input: Option<Color>,
+    pub done: Option<Color>,
+    pub working: Option<Color>,
+    pub needs_input_fg: Option<Color>,
+    pub done_fg: Option<Color>,
+    pub working_fg: Option<Color>,
+}
+
+impl AgentTint {
+    /// Parse the string colours from config into ratatui `Color`s.
+    pub fn from_config(cfg: &crate::config::AgentTintConfig) -> Self {
+        let parse = |c: &Option<String>| c.as_deref().map(crate::config::parse_color);
+        Self {
+            enabled: cfg.enabled,
+            needs_input: parse(&cfg.needs_input),
+            done: parse(&cfg.done),
+            working: parse(&cfg.working),
+            needs_input_fg: parse(&cfg.needs_input_fg),
+            done_fg: parse(&cfg.done_fg),
+            working_fg: parse(&cfg.working_fg),
+        }
+    }
+
+    /// Resolve the `(fg, bg)` default-colour override for a pane, or `(None, None)`
+    /// for "no override" (the pane keeps the host terminal's default colours).
+    ///
+    /// Focus-based (tmux window-active-style): the focused pane is always "live"
+    /// (`working`, usually unset → host colours). For an unfocused pane:
+    ///   * `Blocked` → `needs_input` (tan) — awaiting your input
+    ///   * `Idle`    → `done` (grey)       — finished/quiet while you're elsewhere
+    ///   * `Working` → `working`           — streaming; leave unset so it does NOT
+    ///     paint a distinct colour (this is what keeps the tint strobe-free)
+    ///   * `Unknown` → `(None, None)`      — transient identity loss mid-stream;
+    ///     never paint, so a momentary flicker to Unknown can't flash
+    pub fn tint_for(&self, state: AgentState, is_focused: bool) -> (Option<Color>, Option<Color>) {
+        if !self.enabled {
+            return (None, None);
+        }
+        if is_focused {
+            return (self.working_fg, self.working);
+        }
+        match state {
+            AgentState::Blocked => (self.needs_input_fg, self.needs_input),
+            AgentState::Working => (self.working_fg, self.working),
+            AgentState::Idle => (self.done_fg, self.done),
+            AgentState::Unknown => (None, None),
+        }
+    }
+}
+
 /// All application state — pure data, no channels or async runtime.
 /// Testable without PTYs or a tokio runtime.
 pub struct AppState {
@@ -1424,6 +1483,8 @@ pub struct AppState {
     pub spinner_tick: u32,
     /// UI color palette — all sidebar/UI colors centralized for theming.
     pub palette: Palette,
+    /// Resolved opt-in per-agent-state pane tint (`[ui.agent_tint]`).
+    pub agent_tint: AgentTint,
     /// Currently applied theme name (for settings UI).
     pub theme_name: String,
     /// Runtime theme configuration used to resolve manual and auto-switch palettes.
@@ -1773,6 +1834,7 @@ impl AppState {
             keybinds: Keybinds::default(),
             spinner_tick: 0,
             palette: Palette::catppuccin(),
+            agent_tint: AgentTint::default(),
             theme_name: "catppuccin".to_string(),
             theme_runtime: ThemeRuntimeConfig {
                 manual_name: "catppuccin".to_string(),

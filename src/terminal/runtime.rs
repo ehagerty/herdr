@@ -203,6 +203,16 @@ impl TerminalRuntime {
         self.0.apply_host_terminal_theme(theme);
     }
 
+    /// Override the pane's default fg/bg from agent state (`[ui.agent_tint]`).
+    /// `None`/`None` restores the theme default.
+    pub fn set_state_default_colors(
+        &self,
+        fg: Option<ratatui::style::Color>,
+        bg: Option<ratatui::style::Color>,
+    ) {
+        self.0.set_state_default_colors(fg, bg);
+    }
+
     pub fn begin_graceful_release(&self, agent: crate::detect::Agent) {
         self.0.begin_graceful_release(agent);
     }
