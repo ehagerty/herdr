@@ -1500,6 +1500,16 @@ impl PaneRuntime {
         self.terminal.apply_host_terminal_theme(theme);
     }
 
+    /// Override the pane's default fg/bg from agent state (`[ui.agent_tint]`).
+    /// `None`/`None` restores the theme default.
+    pub fn set_state_default_colors(
+        &self,
+        fg: Option<ratatui::style::Color>,
+        bg: Option<ratatui::style::Color>,
+    ) {
+        self.terminal.set_state_default_colors(fg, bg);
+    }
+
     pub fn spawn(
         pane_id: PaneId,
         rows: u16,
