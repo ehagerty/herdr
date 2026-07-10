@@ -57,14 +57,36 @@ pub fn detach_server_daemon_command(command: &mut std::process::Command) {
             if libc::setsid() < 0 {
                 return Err(std::io::Error::last_os_error());
             }
-            Ok(())
+            // Double-fork: setsid() detaches from the controlling terminal, but
+            // the server would otherwise stay a *child* of the spawning client
+            // for as long as that client lives. On macOS that also keeps it
+            // inside the launching terminal app's process tree/coalition, so
+            // quitting that app (e.g. Ghostty) tears the server — and every
+            // pane it hosts — down with it. Forking again and exiting the
+            // intermediate parent reparents the server to init/launchd at
+            // birth. As a non-leader of the new session it also can never
+            // reacquire a controlling terminal.
+            match libc::fork() {
+                -1 => Err(std::io::Error::last_os_error()),
+                0 => Ok(()),
+                _ => libc::_exit(0),
+            }
         });
     }
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 pub fn current_process_is_detached_server_daemon() -> bool {
-    unsafe { libc::getsid(0) == libc::getpid() }
+    // The daemon spawn path double-forks after setsid(), so the detached
+    // server is deliberately NOT its session leader. "Detached" here means:
+    // no controlling terminal (opening /dev/tty fails with ENXIO). A
+    // foreground `herdr server` run from a shell still has its terminal, so
+    // it correctly reports false. The session-leader check is kept as a
+    // fast path and for servers detached by other means (e.g. bare setsid).
+    if unsafe { libc::getsid(0) == libc::getpid() } {
+        return true;
+    }
+    std::fs::File::open("/dev/tty").is_err()
 }
 
 #[cfg(unix)]

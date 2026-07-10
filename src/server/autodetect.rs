@@ -179,13 +179,17 @@ fn validate_running_server_compatibility() -> io::Result<()> {
 /// Spawns the herdr server as a background daemon process.
 ///
 /// The server process is fully detached:
-/// - Runs in its own session (setsid) so it survives the client exiting
+/// - Runs in its own session (setsid) and is double-forked, so it is
+///   reparented to init/launchd immediately and shares no process-tree
+///   ancestry with the client or the terminal app hosting it
 /// - Stdin/stdout/stderr are redirected to /dev/null
 /// - Inherits relevant environment variables (`XDG_CONFIG_HOME`, `HERDR_SESSION`,
 ///   socket overrides, etc.), except inherited socket overrides are cleared when
 ///   this CLI invocation explicitly selected a session.
 ///
-/// Returns the PID of the spawned server process.
+/// Returns the PID of the spawned trampoline process (the direct child that
+/// forks the real server and exits). The server's own PID is not knowable
+/// here; callers detect readiness via the socket, not the PID.
 pub fn spawn_server_daemon() -> io::Result<u32> {
     let exe = std::env::current_exe().map_err(|err| {
         io::Error::new(
@@ -198,12 +202,18 @@ pub fn spawn_server_daemon() -> io::Result<u32> {
 
     let mut command = build_server_daemon_command(exe);
 
-    let child = command.spawn().map_err(|err: io::Error| {
+    let mut child = command.spawn().map_err(|err: io::Error| {
         io::Error::new(err.kind(), format!("failed to spawn herdr server: {err}"))
     })?;
 
     let pid = child.id();
-    info!(pid, "server daemon spawned");
+
+    // The direct child is only a trampoline: it setsid()s, forks the real
+    // server, and _exit(0)s. Reap it here so it doesn't linger as a zombie
+    // for the lifetime of this client process.
+    let _ = child.wait();
+
+    info!(pid, "server daemon spawned (trampoline pid; server reparented to init)");
 
     Ok(pid)
 }
